@@ -13,8 +13,8 @@ enum State {
     END
 };
 
-enum ITEMTYPE {
-    PEPSI,
+enum class ITEMTYPE {
+    PEPSI = 1,
     COKE,
     LAYS
 };
@@ -66,7 +66,6 @@ class InventoryService {
             return false;
         }
 
-
     public:
         InventoryService() {
             cout<<" InventoryService called"<<endl;
@@ -75,7 +74,7 @@ class InventoryService {
 
         void addItems(ITEMTYPE itemType, Item &item) {
             this->items.insert({itemType, item});
-            cout<<"addItems "<< itemType << " size "<< this->items.size() <<endl;
+            cout<<"addItems "<< (int)itemType << " size "<< this->items.size() <<endl;
         }
 
         void getItems() {
@@ -85,7 +84,7 @@ class InventoryService {
         bool verifyItems(vector<pair<ITEMTYPE, int> >itemsList) {
             for (auto i = 0; i < itemsList.size(); i++) {
                     if(!isItemAvailable(itemsList[i].first, itemsList[i].second)) {
-                        cout<< "item not available" << itemsList[i].first << endl;
+                        cout<< "item not available" << (int)itemsList[i].first << endl;
                         return false;
                     }
             }
@@ -112,13 +111,13 @@ class InventoryService {
                     }
             }
 
-            showInventoryItems();
+            //showInventoryItems();
         }
 
         void showInventoryItems() {
             cout<< "-----------inventory items ------------" <<endl;
             for (auto it = items.begin(); it != items.end(); it++) {
-                cout<< " itemType "<< (*it).first << " quantity "<< (*it).second.getQuantity() <<endl;
+                cout<< " itemType "<< (int)(*it).first << " quantity "<< (*it).second.getQuantity() <<endl;
             }
             cout<< "-----------------------" <<endl;
         }
@@ -260,78 +259,6 @@ class WalletService {
 
 };
 
-
-
-class VendingMachine {
-    private:
-        string id;
-        SessionService sessionService;
-        InventoryService inventoryService;
-        WalletService walletService;
-
-    public:
-       VendingMachine(SessionService &sessionServiceC, InventoryService &inventoryServiceC, WalletService walletServiceC) : 
-            sessionService(sessionServiceC), inventoryService(inventoryServiceC), walletService(walletServiceC) {
-                this->inventoryService = inventoryServiceC;
-            }
-
-       SessionService& getSessionService() {
-           return this->sessionService;
-       }
-
-       InventoryService& getInventoryService() {
-           return this->inventoryService;
-       }
-
-       void createSession() {
-           this->sessionService.createSession();
-           this->walletService.resetCustomerWallet();
-       }
-
-       void endSession() {
-           this->sessionService.endSession();
-       }
-
-
-       bool verifyItems(vector<pair<ITEMTYPE, int> >itemsList) {
-           return this->inventoryService.verifyItems(itemsList);
-       }
-
-       bool insertCash(int totalAmount, vector<pair<ITEMTYPE, int> >itemsList) {
-           int expectedAmount = this->inventoryService.getTotalPrice(itemsList);
-           this->walletService.addInCustomerWallet(totalAmount);
-           if (this->walletService.getCustomerWallet() < expectedAmount) {
-               cout << " insufficient wallet "<< this->walletService.getCustomerWallet() << " expected "<< expectedAmount <<endl;
-               return false;
-           } 
-           return true;
-       }
-
-       void finishPurchase(vector<pair<ITEMTYPE, int> >itemsList) {
-           bool error = false;
-           int expectedAmount = this->inventoryService.getTotalPrice(itemsList);
-           if (!this->verifyItems(itemsList)) {
-               cout<< " Items not found" ;
-               expectedAmount = 0;
-               this->walletService.purchaseAndReturnChange(expectedAmount);
-               return;
-           } else if (!this->walletService.canPurchaseWithWallet(expectedAmount)) {
-               this->walletService.purchaseAndReturnChange(0);
-               return;
-           }
-
-           this->inventoryService.dispenseItems(itemsList);
-           this->walletService.purchaseAndReturnChange(expectedAmount);
-       }
-
-
-       void showInventoryItems() {
-           this->inventoryService.showInventoryItems();
-       }
-        
-};
-
-
 class VendingMachineBase {
     protected:
         string id;
@@ -342,7 +269,6 @@ class VendingMachineBase {
     public:
        VendingMachineBase(SessionService &sessionServiceC, InventoryService &inventoryServiceC, WalletService walletServiceC) : 
             sessionService(sessionServiceC), inventoryService(inventoryServiceC), walletService(walletServiceC) {
-                //this->inventoryService = inventoryServiceC;
             }
 
        SessionService& getSessionService() {
@@ -362,6 +288,24 @@ class VendingMachineBase {
            this->sessionService.endSession();
        }
 
+        virtual bool verifyItems(vector<pair<ITEMTYPE, int> >itemsList) = 0;
+        virtual bool insertCash(int totalAmount, vector<pair<ITEMTYPE, int> >itemsList) = 0;
+        virtual void finishPurchase(vector<pair<ITEMTYPE, int> >itemsList) = 0;
+        virtual void showInventoryItems() = 0;
+        
+};
+
+//using abstraction: implemented here.
+class VendingMachineImp: public VendingMachineBase {
+    public:
+
+        VendingMachineImp(SessionService &sessionServiceC, InventoryService &inventoryServiceC, WalletService walletServiceC) : 
+                    VendingMachineBase((sessionServiceC), (inventoryServiceC), (walletServiceC)) {
+            }
+    
+       void showInventoryItems() {
+           this->inventoryService.showInventoryItems();
+       }
 
        bool verifyItems(vector<pair<ITEMTYPE, int> >itemsList) {
            return this->inventoryService.verifyItems(itemsList);
@@ -393,29 +337,7 @@ class VendingMachineBase {
 
            this->inventoryService.dispenseItems(itemsList);
            this->walletService.purchaseAndReturnChange(expectedAmount);
-       }
-
-
-    //    void showInventoryItems() {
-    //        this->inventoryService.showInventoryItems();
-    //    }
-
-       virtual void showInventoryItems() = 0;
-        
-};
-
-//using abstraction: showInventoryItems implemented here.
-class VendingMachineImp: public VendingMachineBase {
-    public:
-
-        VendingMachineImp(SessionService &sessionServiceC, InventoryService &inventoryServiceC, WalletService walletServiceC) : 
-                    VendingMachineBase((sessionServiceC), (inventoryServiceC), (walletServiceC)) {
-            }
-    
-       void showInventoryItems() {
-           this->inventoryService.showInventoryItems();
-       }
-        
+       }        
 };
 
 int main() {
@@ -432,23 +354,24 @@ int main() {
 
     VendingMachineBase *vendingMachineImpObj = new VendingMachineImp(sessionService, inventoryService, walletService);
     (*vendingMachineImpObj).getInventoryService().addItems(ITEMTYPE::PEPSI, item1);
-    (*vendingMachineImpObj).getInventoryService().addItems(ITEMTYPE::LAYS, item2);
+    (*vendingMachineImpObj).getInventoryService().addItems(ITEMTYPE::COKE, item2);
+    //(*vendingMachineImpObj).getInventoryService().addItems(ITEMTYPE::LAYS, item2);
     (*vendingMachineImpObj).showInventoryItems();
     
 
-    VendingMachineImp vendingMachineImp(sessionService, inventoryService, walletService);
-    vendingMachineImp.getInventoryService().addItems(ITEMTYPE::PEPSI, item1);
-    vendingMachineImp.getInventoryService().addItems(ITEMTYPE::COKE, item2);
-    vendingMachineImp.showInventoryItems();
+    // VendingMachineImp vendingMachineImp(sessionService, inventoryService, walletService);
+    // vendingMachineImp.getInventoryService().addItems(ITEMTYPE::PEPSI, item1);
+    // vendingMachineImp.getInventoryService().addItems(ITEMTYPE::COKE, item2);
+    // vendingMachineImp.showInventoryItems();
 
 
-    int i = 4;
-    vector<int> cash({1000,1000, 150, 5});
+    int i = 3;
+    vector<int> cash({1000,1000, 150, 500, 100});
     while(i--) {
-        cout<< "***********************"<<endl;
-        State currentSess = vendingMachineImp.getSessionService().getCurrentSession().getCurrentState();
+        cout<< "***********************/////////*********************"<<endl;
+        State currentSess = (*vendingMachineImpObj).getSessionService().getCurrentSession().getCurrentState();
         if (currentSess == State::END) {
-            vendingMachineImp.createSession();
+            (*vendingMachineImpObj).createSession();
         } else if (currentSess == State::READY) {
 
         }   else {
@@ -461,69 +384,28 @@ int main() {
         itemList.push_back({ITEMTYPE::COKE, i+2});
 
 
-        vendingMachineImp.getSessionService().getCurrentSession().nextState();
-        cout<<"State "<< vendingMachineImp.getSessionService().getCurrentSession().getCurrentState()<<endl;
+        (*vendingMachineImpObj).getSessionService().getCurrentSession().nextState();
+        //cout<<"State "<< (*vendingMachineImpObj).getSessionService().getCurrentSession().getCurrentState()<<endl;
         
-        vendingMachineImp.showInventoryItems();
+        (*vendingMachineImpObj).showInventoryItems();
 
-        if (vendingMachineImp.verifyItems(itemList)) {
-            vendingMachineImp.getSessionService().getCurrentSession().nextState();
+        cout<< "Items picked "<< (i + 2) <<endl; 
+        if (true) {
+            (*vendingMachineImpObj).verifyItems(itemList);
+            (*vendingMachineImpObj).getSessionService().getCurrentSession().nextState();
             
-            vendingMachineImp.insertCash(cash[i], itemList);
-            vendingMachineImp.getSessionService().getCurrentSession().nextState();
+            (*vendingMachineImpObj).insertCash(cash[i], itemList);
+            (*vendingMachineImpObj).getSessionService().getCurrentSession().nextState();
 
-            vendingMachineImp.finishPurchase(itemList);
-            vendingMachineImp.getSessionService().getCurrentSession().nextState();
+            (*vendingMachineImpObj).finishPurchase(itemList);
+            (*vendingMachineImpObj).getSessionService().getCurrentSession().nextState();
 
         }
         
-        vendingMachineImp.showInventoryItems();
-        vendingMachineImp.endSession();
+        (*vendingMachineImpObj).showInventoryItems();
+        (*vendingMachineImpObj).endSession();
 
     }
 
-
-    //without abstraction
-    // VendingMachine vendingMachine(sessionService, inventoryService, walletService);
-    // vendingMachine.getInventoryService().addItems(ITEMTYPE::PEPSI, item1);
-    // vendingMachine.getInventoryService().addItems(ITEMTYPE::COKE, item2);
-    // i = 4;
-    // //vector<int> cash({1000,1000, 150, 5});
-    // while(i--) {
-    //     cout<< "***********************"<<endl;
-    //     State currentSess = vendingMachine.getSessionService().getCurrentSession().getCurrentState();
-    //     if (currentSess == State::END) {
-    //         vendingMachine.createSession();
-    //     } else if (currentSess == State::READY) {
-
-    //     }   else {
-    //         cout<< " Other session going"<< endl;
-    //         continue;
-    //     }
-
-    //     vector<pair<ITEMTYPE, int> > itemList;
-    //     itemList.push_back({ITEMTYPE::PEPSI, i+2});
-    //     itemList.push_back({ITEMTYPE::COKE, i+2});
-
-
-    //     vendingMachine.getSessionService().getCurrentSession().nextState();
-    //     cout<<"State "<< vendingMachine.getSessionService().getCurrentSession().getCurrentState()<<endl;
-        
-    //     vendingMachine.showInventoryItems();
-
-    //     if (vendingMachine.verifyItems(itemList)) {
-    //         vendingMachine.getSessionService().getCurrentSession().nextState();
-            
-    //         vendingMachine.insertCash(cash[i], itemList);
-    //         vendingMachine.getSessionService().getCurrentSession().nextState();
-
-    //         vendingMachine.finishPurchase(itemList);
-    //         vendingMachine.getSessionService().getCurrentSession().nextState();
-
-    //     }
-        
-    //     vendingMachine.showInventoryItems();
-    //     vendingMachine.endSession();
-    // }
     return 0;
 }
